@@ -94,12 +94,12 @@ function renderObject(object, num)
             for (let j = 0; j < object.faces[i].faceVertices.length; j++){
                 object.norm.push(object.faces[i].faceNormals[j]);
                 object.vert.push(object.faces[i].faceVertices[j]);
-                // object.text.push(object.faces[i].faceTexCoords[j]);
+                //object.text.push(object.faces[i].faceTexCoords[j]);
                 // console.log(object.text);
             }
             for (let j = 0; j < object.faces[i].faceTexCoords.length; j++) {
                 object.text.push(object.faces[i].faceTexCoords[j]);
-                console.log(object.text);
+                //console.log(object.text);
             }
         }
         scene.push(object);
@@ -124,13 +124,24 @@ function helperRender()
 function finishRender()
 {
     render(stopSign, 1);
-    render(lamp, 2);
-    render(car, 3);
-    render(street, 4);
-    render(bunny, 5);
+    // render(lamp, 2);
+    // render(car, 3);
+    // render(street, 4);
+    // render(bunny, 5);
 }
 function render(object, num)
 {
+    if(num === 1)
+    {
+        gl.uniform1i(gl.getUniformLocation(program, "stop"), 1);
+        drawStop(object);
+    }
+    else
+    {
+        gl.uniform1i(gl.getUniformLocation(program, "stop"), 0);
+        drawStop(object);
+    }
+
     var vBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, flatten(object.vert), gl.STATIC_DRAW);
@@ -141,11 +152,7 @@ function render(object, num)
 
     gl.drawArrays(gl.TRIANGLES, 0, object.vert.length);
 
-    if(num === 1)
-    {
 
-        drawStop(object);
-    }
 
 
 }
