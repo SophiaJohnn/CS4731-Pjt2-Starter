@@ -6,8 +6,6 @@ let modelViewMatrixLoc;
 let projectionMatrix;
 let projectionMatrixLoc;
 let tempMatrix;
-let cameraMatrix;
-let cameraMatrixLoc;
 let stopTranslate;
 let stopRotate;
 let lampTranslate;
@@ -38,9 +36,13 @@ let ifAmbient = false;
 let ifCloseUp = false;
 let isShadow = false;
 let animate = false;
+let isSkyBox = false;
+let isReflection = false;
+let isRefraction = false;
 
 let m;
 let stack;
+var cubeMap;
 
 
 
@@ -56,6 +58,18 @@ function main() {
     image.onload = function () {
         configureTexture(image);
     }
+    var imageOne = new Image();
+    var imageTwo = new Image();
+    var imageThree = new Image();
+    var imageFour = new Image();
+    var imageFive = new Image();
+    var imageSix = new Image();
+    configureImage(imageOne, "https://web.cs.wpi.edu/~jmcuneo/cs4731/project2/skybox_negx.png");
+    configureImage(imageTwo, "https://web.cs.wpi.edu/~jmcuneo/cs4731/project2/skybox_negy.png");
+    configureImage(imageThree, "https://web.cs.wpi.edu/~jmcuneo/cs4731/project2/skybox_negz.png");
+    configureImage(imageFour, "https://web.cs.wpi.edu/~jmcuneo/cs4731/project2/skybox_posx.png");
+    configureImage(imageFive, "https://web.cs.wpi.edu/~jmcuneo/cs4731/project2/skybox_posy.png");
+    configureImage(imageSix, "https://web.cs.wpi.edu/~jmcuneo/cs4731/project2/skybox_posz.png");
     // Get the stop sign
     stopSign = new Model(
         "http://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj",
@@ -185,16 +199,21 @@ function handleKey(event)
                 modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
                 gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
                 helperRender();
-
             }
             break;
         case 'E':
+            isSkyBox =! isSkyBox
+            helperRender();
 
             break;
         case 'R':
+            isReflection =! isReflection;
+            helperRender();
 
             break;
         case 'F':
+            isRefraction =! isRefraction;
+            helperRender();
 
             break;
 
@@ -330,8 +349,6 @@ function render(object, num) {
     gl.enableVertexAttribArray(vMaterialSpecular);
 
 
-
-
     gl.drawArrays(gl.TRIANGLES, 0, object.vert.length);
 
 
@@ -398,5 +415,29 @@ function placement(object) {
     modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
     gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(tempMatrix));
 }
+function configureImage(image, link){
+    image.crossOrigin = "";
+    image.src = link;
+    image.onload = function() {
+        configureCubeMapImage(image);
+    }
+}
+function configureCubeMapImage(image) {
+    cubeMap = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubeMap);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+    gl.uniform1i(gl.getUniformLocation(program, "texMap"), 1);
+}
+
 
 
