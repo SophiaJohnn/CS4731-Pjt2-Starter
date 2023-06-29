@@ -8,6 +8,7 @@
             uniform mat4 modelViewMatrix;
             uniform mat4 projectionMatrix;
 
+
             attribute vec2 vTexCoord;
 
             varying vec2 fTexCoord;
@@ -48,6 +49,7 @@
             varying vec2 fTexCoord;
             uniform sampler2D texture;
             uniform bool stop;
+            uniform bool ifAmbient;
 
             precision mediump float;
 
@@ -67,8 +69,16 @@
             vec4 diffuse = diffuseProduct * dot(L, N);
             vec4 specular = specularProduct * pow(max(dot(V, R), 0.0), 30.0);
             vec4 ambient = ambientLight * fMaterialDiffuse;
+            vec4 fColor;
 
-            vec4 fColor= specular + ambient + diffuse;
+            if(ifAmbient == true)
+            {
+                fColor = ambient;
+            }
+            else
+            {
+                fColor= specular + ambient + diffuse;
+            }
 
             fColor.a = 1.0;
 
@@ -81,6 +91,7 @@
            {
                     gl_FragColor = fColor;
            }
+
 
 
 

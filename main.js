@@ -6,6 +6,8 @@ let modelViewMatrixLoc;
 let projectionMatrix;
 let projectionMatrixLoc;
 let tempMatrix;
+let cameraMatrix;
+let cameraMatrixLoc;
 let stopTranslate;
 let stopRotate;
 let lampTranslate;
@@ -29,9 +31,25 @@ var lightSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
 let scene = [];
 let gl;
 let cameraMove = false;
+let theta = 0;
+let bobbing = 0;
+let alpha;
+let ifAmbient = false;
+let stack = [];
+let ifCloseUp = false;
+let isShadow = false;
+
+let m;
+let cameraBunny = [];
+
 
 
 function main() {
+    m = mat4();
+    m[3][3] = 0;
+    m[3][2] = -1/lightPosition[2];
+    m[3][1] = 0;
+
     var image = new Image();
     image.crossOrigin = "";
     image.src = "https://web.cs.wpi.edu/~jmcuneo/cs4731/project2/stop.png";
@@ -89,6 +107,8 @@ function main() {
     projectionMatrixLoc = gl.getUniformLocation(program, 'projectionMatrix');
     gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projectionMatrix));
     eye = vec3(0.0, 4.0, 5.0);
+
+
     modelViewMatrix = lookAt(eye, at, up);
     modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
     gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
@@ -98,181 +118,289 @@ function main() {
     gl.uniform4fv(gl.getUniformLocation(program, "ambientLight"), flatten(lightAmbient));
     gl.uniform4fv(gl.getUniformLocation(program, "lightPosition"), flatten(lightPosition));
 
-    // window.onkeypress = function (event) {
-    //     var key = event.key;
-    //     switch (key) {
-    //         case 'C':
-    //             cameraMove = !cameraMove;
-    //             if (cameraMove) {
-    //                 moveCamera();
-    //             }
-    //             break;
-    //
-    //     }
-    // }
+    window.addEventListener("keydown" , handleKey);
 
-        renderObject(stopSign, 1);
-        renderObject(lamp, 2);
-        renderObject(car, 3);
-        renderObject(street, 4);
-        renderObject(bunny, 5);
-        helperRender();
-    }
-
-    function renderObject(object, num) {
-        if (object.objParsed && object.mtlParsed) {
-            for (let i = 0; i < object.faces.length; i++) {
-                let diffMap = object.diffuseMap.get(object.faces[i].material);
-                let specMap = object.specularMap.get(object.faces[i].material);
-                for (let j = 0; j < object.faces[i].faceVertices.length; j++) {
-                    object.norm.push(object.faces[i].faceNormals[j]);
-                    object.vert.push(object.faces[i].faceVertices[j]);
-                    object.diffuse.push(diffMap);
-                    object.specular.push(specMap);
-                }
-                for (let k = 0; k < object.faces[i].faceTexCoords.length; k++) {
-                    object.text.push(object.faces[i].faceTexCoords[k]);
-                }
-            }
-            scene.push(object);
-        } else {
-            requestAnimationFrame(function () {
-                renderObject(object, num);
-            });
-        }
-    }
-
-    function helperRender() {
-        if (scene.length === 5) {
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.clearColor(0, 0, 0, 1.0);
-            finishRender();
-        } else {
-            requestAnimationFrame(function () {
-                helperRender();
-            });
-        }
-    }
-
-    function finishRender() {
-        placement(stopSign);
-        render(stopSign, 1);
-        placement(lamp);
-        render(lamp, 2);
-        placement(car);
-        render(car, 3);
-        placement(street);
-        render(street, 4);
-        placement(bunny);
-        render(bunny, 5);
-    }
-
-    function render(object, num) {
-        if (num === 1) {
-            gl.uniform1i(gl.getUniformLocation(program, "stop"), 1);
-            placement(object);
-            drawStop(object);
-        } else {
-            gl.uniform1i(gl.getUniformLocation(program, "stop"), 0);
-        }
-
-        var vNormal = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vNormal);
-        gl.bufferData(gl.ARRAY_BUFFER, flatten(object.norm), gl.STATIC_DRAW);
-
-        var vNormalPosition = gl.getAttribLocation(program, "vNormal");
-        gl.vertexAttribPointer(vNormalPosition, 4, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(vNormalPosition);
-
-        var vBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, flatten(object.vert), gl.STATIC_DRAW);
-
-        var vPosition = gl.getAttribLocation(program, "vPosition");
-        gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(vPosition);
-
-        var diffBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, diffBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, flatten(object.diffuse), gl.STATIC_DRAW);
-
-        var vMaterialDiffuse = gl.getAttribLocation(program, "vMaterialDiffuse");
-        gl.vertexAttribPointer(vMaterialDiffuse, 4, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(vMaterialDiffuse);
-
-        var specBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, specBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, flatten(object.specular), gl.STATIC_DRAW);
-
-        var vMaterialSpecular = gl.getAttribLocation(program, "vMaterialSpecular");
-        gl.vertexAttribPointer(vMaterialSpecular, 4, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(vMaterialSpecular);
-
-        gl.drawArrays(gl.TRIANGLES, 0, object.vert.length);
-
-
-    }
-
-    function drawStop(object) {
-        var tBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, flatten(object.text), gl.STATIC_DRAW);
-
-        var vTexCoord = gl.getAttribLocation(program, "vTexCoord");
-        gl.vertexAttribPointer(vTexCoord, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(vTexCoord);
-    }
-
-
-    function configureTexture(image) {
-        var tex = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image)
-
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-        gl.uniform1i(gl.getUniformLocation(program, "texture"), 0);
-    }
-
-
-    function placement(object) {
-        if (object === stopSign) {
-            stopTranslate = translate(2, 0, -4);
-            stopRotate = rotate(270, [0, 1, 0]);
-            tempMatrix = mult(modelViewMatrix, mult(stopTranslate, stopRotate));
-        }
-        if (object === lamp) {
-            lampTranslate = translate(0, 0, 0);
-            tempMatrix = mult(modelViewMatrix, lampTranslate);
-        }
-        if (object === car) {
-            carRotate = rotate(180, [0, 1, 0]);
-            carTranslate = translate(2.7, 0, 0);
-            tempMatrix = mult(modelViewMatrix, mult(carTranslate, carRotate));
-        }
-        if (object === street) {
-            streetTranslate = translate(0, 0, 0);
-            tempMatrix = mult(modelViewMatrix, streetTranslate);
-        }
-        if (object === bunny) {
-            bunnyTranslate = translate(2.5, 0.8, 1.5);
-            tempMatrix = mult(modelViewMatrix, bunnyTranslate);
-        }
-
-        modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
-        gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(tempMatrix));
-    }
-function moveCamera()
+    renderObject(stopSign, 1);
+    renderObject(lamp, 2);
+    renderObject(car, 3);
+    renderObject(street, 4);
+    renderObject(bunny, 5);
+    helperRender();
+}
+function handleKey(event)
 {
-    if(cameraMove)
-    {
-        requestAnimationFrame(moveCamera);
+    var key = event.key;
+    switch (event.key) {
+        case 'L':
+
+            ifAmbient = !ifAmbient;
+            helperRender();
+            break;
+
+        case 'C':
+            cameraMove = !cameraMove;
+            helperRender();
+
+            break;
+        case 'M':
+
+            break;
+        case 'D': // FIX so that it stays on the rabbit
+            ifCloseUp = !ifCloseUp;
+            if(ifCloseUp)
+            {
+                modelViewMatrix = lookAt(vec3(3.0, 1.4, -1.2), vec3(2.5, 0.8, -1.2), vec3(0.0, 1.0, 0.0));
+                modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
+                gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
+            }
+            else
+            {
+                modelViewMatrix = lookAt(eye, at, up);
+                modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
+                gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
+            }
+            helperRender();
+            break;
+        case 'S':
+
+            isShadow= !isShadow;
+            if(isShadow) {
+                let fColor = gl.getUniformLocation(program, "fColor");
+                let viewMatrix = lookAt(eye, at, up);
+                let modelMatrix = translate(lightPosition[0], lightPosition[1], lightPosition[2]);
+                modelMatrix = mult(modelMatrix, m);
+                modelMatrix = mult(modelMatrix, translate(-lightPosition[0], -lightPosition[1], -lightPosition[2]));
+
+                modelViewMatrix = mult(modelViewMatrix, modelMatrix);
+
+                modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
+                gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
+                gl.uniform4fv(fColor, flatten(vec4(0,0,0,1)));
+                gl.drawArrays(gl.TRIANGLES, 0, car.vert.length);
+                helperRender();
+            }
+            else
+            {
+                modelViewMatrix = lookAt(eye, at, up);
+                modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
+                gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
+                helperRender();
+
+            }
+
+            break;
+        case 'E':
+
+            break;
+        case 'R':
+
+            break;
+        case 'F':
+
+            break;
+
+
     }
+}
+
+function renderObject(object, num) {
+    if (object.objParsed && object.mtlParsed) {
+        for (let i = 0; i < object.faces.length; i++) {
+            let diffMap = object.diffuseMap.get(object.faces[i].material);
+            let specMap = object.specularMap.get(object.faces[i].material);
+            for (let j = 0; j < object.faces[i].faceVertices.length; j++) {
+                object.norm.push(object.faces[i].faceNormals[j]);
+                object.vert.push(object.faces[i].faceVertices[j]);
+                object.diffuse.push(diffMap);
+                object.specular.push(specMap);
+            }
+            for (let k = 0; k < object.faces[i].faceTexCoords.length; k++) {
+                object.text.push(object.faces[i].faceTexCoords[k]);
+            }
+        }
+        scene.push(object);
+    } else {
+        requestAnimationFrame(function () {
+            renderObject(object, num);
+        });
+    }
+}
+
+function helperRender() {
+    if (scene.length === 5) {
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.clearColor(0, 0, 0, 1.0);
+        finishRender();
+    } else {
+        requestAnimationFrame(function () {
+            helperRender();
+        });
+    }
+}
+
+function finishRender() {
+    placement(stopSign);
+    render(stopSign, 1);
+    placement(lamp);
+    render(lamp, 2);
+    placement(car);
+    render(car, 3);
+    placement(street);
+    render(street, 4);
+    placement(bunny);
+    render(bunny, 5);
+
+    if(cameraMove){
+        if(theta === 360)
+        {
+            theta = 0;
+        }
+        else {
+            theta++;
+        }
+        if((theta < 90) || ((theta > 180) && (theta < 270 ))) {
+            bobbing +=0.01;
+        }
+        if(((theta > 90) && (theta < 180)) || ((theta > 270) && (theta < 360))) {
+            bobbing-=0.01;
+        }
+        let tempTranslate = translate(0,bobbing,0);
+        let rotationMatrix = rotate(theta, [0,1, 0]);
+        let cMatrix = mult(tempTranslate, rotationMatrix);
+        cMatrix = mult(cMatrix, vec4(eye));
+        modelViewMatrix = lookAt(vec3(cMatrix), at, up);
+        gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
+        requestAnimationFrame(finishRender);
+    }
+}
+
+function render(object, num) {
+    if (num === 1) {
+        gl.uniform1i(gl.getUniformLocation(program, "stop"), 1);
+        placement(object);
+        drawStop(object);
+    } else {
+        gl.uniform1i(gl.getUniformLocation(program, "stop"), 0);
+    }
+    if(ifAmbient){
+        gl.uniform1i(gl.getUniformLocation(program, "ifAmbient"), 1);
+    }else{
+        gl.uniform1i(gl.getUniformLocation(program, "ifAmbient"), 0);
+    }
+
+    var vNormal = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vNormal);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(object.norm), gl.STATIC_DRAW);
+
+    var vNormalPosition = gl.getAttribLocation(program, "vNormal");
+    gl.vertexAttribPointer(vNormalPosition, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vNormalPosition);
+
+    var vBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(object.vert), gl.STATIC_DRAW);
+
+    var vPosition = gl.getAttribLocation(program, "vPosition");
+    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
+
+    var diffBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, diffBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(object.diffuse), gl.STATIC_DRAW);
+
+    var vMaterialDiffuse = gl.getAttribLocation(program, "vMaterialDiffuse");
+    gl.vertexAttribPointer(vMaterialDiffuse, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vMaterialDiffuse);
+
+    var specBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, specBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(object.specular), gl.STATIC_DRAW);
+
+    var vMaterialSpecular = gl.getAttribLocation(program, "vMaterialSpecular");
+    gl.vertexAttribPointer(vMaterialSpecular, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vMaterialSpecular);
+
+
+    //FIX
+
+    // alpha += 0.5;
+    //
+    // stack.push(modelViewMatrix);
+    //     modelViewMatrix = mult(translate(2.7, 0, 0), rotate(alpha, [0,1,0]));
+    //     gl.uniformMatrix4fv(program, false, flatten(modelViewMatrix) );
+    //     renderObject(car, 3);
+    //     stack.push(modelViewMatrix);
+    //         renderObject(bunny, 4);
+    //
+    //
+    //
+    // // stack.push(modelViewMatrix);
+    // // mvMatrix = mult(modelViewMatrix, translate(1, 1, 1));
+    // // gl.uniformMatrix4fv(program, false, flatten(modelViewMatrix) );
+    // // draw(magentaCube, vec4(1.0, 0.0, 1.0, 1.0));
+    //     modelViewMatrix = stack.pop();
+    //
+    // modelViewMatrix = stack.pop();
+
+
+    gl.drawArrays(gl.TRIANGLES, 0, object.vert.length);
+
+
+}
+
+function drawStop(object) {
+    var tBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(object.text), gl.STATIC_DRAW);
+
+    var vTexCoord = gl.getAttribLocation(program, "vTexCoord");
+    gl.vertexAttribPointer(vTexCoord, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vTexCoord);
+}
+
+
+function configureTexture(image) {
+    var tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image)
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+    gl.uniform1i(gl.getUniformLocation(program, "texture"), 0);
+}
+
+
+function placement(object) {
+    if (object === stopSign) {
+        stopTranslate = translate(2, 0, -4);
+        stopRotate = rotate(270, [0, 1, 0]);
+        tempMatrix = mult(modelViewMatrix, mult(stopTranslate, stopRotate));
+    }
+    if (object === lamp) {
+        lampTranslate = translate(0, 0, 0);
+        tempMatrix = mult(modelViewMatrix, lampTranslate);
+    }
+    if (object === car) {
+        carRotate = rotate(180, [0, 1, 0]);
+        carTranslate = translate(2.7, 0, 0);
+        tempMatrix = mult(modelViewMatrix, mult(carTranslate, carRotate));
+    }
+    if (object === street) {
+        streetTranslate = translate(0, 0, 0);
+        tempMatrix = mult(modelViewMatrix, streetTranslate);
+    }
+    if (object === bunny) {
+        bunnyTranslate = translate(2.5, 0.8, -1.2);
+        tempMatrix = mult(modelViewMatrix, bunnyTranslate);
+    }
+
+    modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
+    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(tempMatrix));
 }
 
 
