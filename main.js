@@ -35,12 +35,12 @@ let theta = 0;
 let bobbing = 0;
 let alpha;
 let ifAmbient = false;
-let stack = [];
 let ifCloseUp = false;
 let isShadow = false;
+let animate = false;
 
 let m;
-let cameraBunny = [];
+let stack;
 
 
 
@@ -143,9 +143,11 @@ function handleKey(event)
 
             break;
         case 'M':
+            animate = !animate;
+            helperRender();
 
             break;
-        case 'D': // FIX so that it stays on the rabbit
+        case 'D':
             ifCloseUp = !ifCloseUp;
             if(ifCloseUp)
             {
@@ -162,11 +164,9 @@ function handleKey(event)
             helperRender();
             break;
         case 'S':
-
             isShadow= !isShadow;
             if(isShadow) {
                 let fColor = gl.getUniformLocation(program, "fColor");
-                let viewMatrix = lookAt(eye, at, up);
                 let modelMatrix = translate(lightPosition[0], lightPosition[1], lightPosition[2]);
                 modelMatrix = mult(modelMatrix, m);
                 modelMatrix = mult(modelMatrix, translate(-lightPosition[0], -lightPosition[1], -lightPosition[2]));
@@ -187,7 +187,6 @@ function handleKey(event)
                 helperRender();
 
             }
-
             break;
         case 'E':
 
@@ -244,11 +243,21 @@ function finishRender() {
     placement(lamp);
     render(lamp, 2);
     placement(car);
+    //WORKS SOMETIMES BUT BREAKS THE CODE WHEN M IS PRESSED FOR ANIMATE
+    // if(animate)
+    // {
+    //     alpha+=0.5;
+    //     let carRotate = rotate(alpha, [0,1,0])
+    //     tempMatrix = mult(carRotate, tempMatrix);
+    //     gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(tempMatrix));
+    //
+    // }
+    // stack.push(tempMatrix);
     render(car, 3);
-    placement(street);
-    render(street, 4);
     placement(bunny);
     render(bunny, 5);
+    placement(street);
+    render(street, 4);
 
     if(cameraMove){
         if(theta === 360)
@@ -270,8 +279,8 @@ function finishRender() {
         cMatrix = mult(cMatrix, vec4(eye));
         modelViewMatrix = lookAt(vec3(cMatrix), at, up);
         gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
-        requestAnimationFrame(finishRender);
     }
+    requestAnimationFrame(finishRender);
 }
 
 function render(object, num) {
@@ -321,26 +330,6 @@ function render(object, num) {
     gl.enableVertexAttribArray(vMaterialSpecular);
 
 
-    //FIX
-
-    // alpha += 0.5;
-    //
-    // stack.push(modelViewMatrix);
-    //     modelViewMatrix = mult(translate(2.7, 0, 0), rotate(alpha, [0,1,0]));
-    //     gl.uniformMatrix4fv(program, false, flatten(modelViewMatrix) );
-    //     renderObject(car, 3);
-    //     stack.push(modelViewMatrix);
-    //         renderObject(bunny, 4);
-    //
-    //
-    //
-    // // stack.push(modelViewMatrix);
-    // // mvMatrix = mult(modelViewMatrix, translate(1, 1, 1));
-    // // gl.uniformMatrix4fv(program, false, flatten(modelViewMatrix) );
-    // // draw(magentaCube, vec4(1.0, 0.0, 1.0, 1.0));
-    //     modelViewMatrix = stack.pop();
-    //
-    // modelViewMatrix = stack.pop();
 
 
     gl.drawArrays(gl.TRIANGLES, 0, object.vert.length);
@@ -380,6 +369,7 @@ function placement(object) {
         stopTranslate = translate(2, 0, -4);
         stopRotate = rotate(270, [0, 1, 0]);
         tempMatrix = mult(modelViewMatrix, mult(stopTranslate, stopRotate));
+
     }
     if (object === lamp) {
         lampTranslate = translate(0, 0, 0);
@@ -389,6 +379,7 @@ function placement(object) {
         carRotate = rotate(180, [0, 1, 0]);
         carTranslate = translate(2.7, 0, 0);
         tempMatrix = mult(modelViewMatrix, mult(carTranslate, carRotate));
+
     }
     if (object === street) {
         streetTranslate = translate(0, 0, 0);
@@ -396,6 +387,11 @@ function placement(object) {
     }
     if (object === bunny) {
         bunnyTranslate = translate(2.5, 0.8, -1.2);
+        //WORKS SOMETIMES BUT BREAKS THE CODE WHEN M IS PRESSED FOR ANIMATE
+        // if(animate)
+        // {
+        //     bunnyTranslate = mult(bunnyTranslate, stack.pop());
+        // }
         tempMatrix = mult(modelViewMatrix, bunnyTranslate);
     }
 
